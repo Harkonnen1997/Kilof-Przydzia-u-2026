@@ -1,0 +1,470 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kilof Przydziału</title>
+  <style>
+    @font-face {
+      font-family: 'Gothic';
+      src: url('gothic.ttf') format('truetype');
+    }
+
+    @font-face {
+      font-family: 'Minecraft';
+      src: url('minecraft.ttf') format('truetype');
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0 16px;
+      min-height: 100vh;
+      background-image: url('background.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      font-family: 'Gothic', serif;
+      color: #fff;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 4em;
+      margin-top: 1em;
+      font-family: 'Minecraft', monospace;
+      color: #ffe600;
+      text-shadow: 2px 2px 2px #000;
+    }
+
+    .title-orbit {
+      position: relative;
+      display: inline-block;
+    }
+
+    #pacman {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 54px;
+      height: 54px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      will-change: transform;
+      z-index: 10;
+    }
+
+    #pacman.flying {
+      opacity: 1;
+    }
+
+    #pacman img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+      object-fit: cover;
+      border: 2px solid #ffe600;
+      box-shadow: 0 0 8px rgba(0,0,0,0.7);
+    }
+
+    #pacman.mouth-open img {
+      clip-path: polygon(50% 50%, 100% 15%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 85%);
+    }
+
+    .orbit-dot {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 16px;
+      height: 40px;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 9;
+    }
+
+    .orbit-dot img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .orbit-dot.eaten {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+
+    @media (max-width: 600px) {
+      #pacman {
+        width: 40px;
+        height: 40px;
+      }
+
+      .orbit-dot {
+        width: 11px;
+        height: 28px;
+      }
+    }
+
+    .selection-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 1em;
+    }
+
+    .input-wrapper {
+      position: relative;
+      width: 260px;
+      max-width: 90vw;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 1.2em;
+      font-family: 'Gothic', serif;
+    }
+
+    #playerInput {
+      width: 100%;
+    }
+
+    #suggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: rgba(20, 20, 20, 0.95);
+      border: 1px solid #ffe600;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 5;
+      text-align: left;
+      display: none;
+    }
+
+    #suggestions div {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    #suggestions div:hover,
+    #suggestions div.active {
+      background: rgba(255, 230, 0, 0.25);
+    }
+
+    #result {
+      margin-top: 2em;
+      font-size: 1.5em;
+      background: rgba(0, 0, 0, 0.6);
+      display: inline-block;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 90vw;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 0 10px;
+      }
+
+      h1 {
+        font-size: 2.2em;
+        margin-top: 0.8em;
+      }
+
+      .selection-container {
+        flex-direction: column;
+      }
+
+      input, button {
+        font-size: 1em;
+      }
+
+      #result {
+        font-size: 1.1em;
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="title-orbit" id="titleOrbit">
+    <h1>Kilof Przydziału</h1>
+    <div id="pacman"><img src="glowa.jpg" alt=""></div>
+  </div>
+
+  <div class="selection-container">
+    <button onclick="resetSelection()">Wróć</button>
+    <label for="playerInput">Wpisz swoje imię:</label>
+    <div class="input-wrapper">
+      <input type="text" id="playerInput" name="playerInput" placeholder="np. Olga" autocomplete="off">
+      <div id="suggestions"></div>
+    </div>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    const data = {
+      "1": {
+        czlonkowie: ["Chudy", "Erol", "Galm", "Grzebor", "Iskra", "Latro", "Łajza", "Skaza", "Zek"]
+      },
+      "2": {
+        czlonkowie: ["Darnok", "Duży", "Krótki Josif", "Kwasik", "Leonardo", "Maruda", "Melgen", "Merik", "Ravill", "Rosa"]
+      },
+      "3": {
+        czlonkowie: ["Anilis", "Benek", "Cykuta", "Morian", "Pocak", "Rez", "Rudzik", "Sójka"]
+      },
+      "4": {
+        czlonkowie: ["Bercik", "Borek", "Cespenar", "Dodo", "Gierałt", "Jopke", "Kati", "Knaga", "Neralis", "Szczery", "Teodor"]
+      },
+      "6": {
+        czlonkowie: ["Barett", "Genowefa", "Ligon", "Rudy Faja", "Sarniak", "Smalec Faja", "Talla", "Tipp", "Valerian", "Wilgo", "Yarem"]
+      }
+    };
+
+    const input = document.getElementById('playerInput');
+    const resultDiv = document.getElementById('result');
+    const suggestionsBox = document.getElementById('suggestions');
+
+    const allNames = [];
+    Object.values(data).forEach(info => {
+      info.czlonkowie.forEach(name => allNames.push(name));
+    });
+
+    let activeIndex = -1;
+
+    function resetSelection() {
+      input.value = "";
+      resultDiv.innerHTML = "";
+      hideSuggestions();
+    }
+
+    function hideSuggestions() {
+      suggestionsBox.style.display = 'none';
+      suggestionsBox.innerHTML = '';
+      activeIndex = -1;
+    }
+
+    function renderSuggestions(matches) {
+      suggestionsBox.innerHTML = '';
+      if (matches.length === 0) {
+        hideSuggestions();
+        return;
+      }
+      matches.forEach(name => {
+        const div = document.createElement('div');
+        div.textContent = name;
+        div.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectName(name);
+        });
+        suggestionsBox.appendChild(div);
+      });
+      suggestionsBox.style.display = 'block';
+      activeIndex = -1;
+    }
+
+    function selectName(name) {
+      input.value = name;
+      hideSuggestions();
+      handleSelection(name);
+    }
+
+    input.addEventListener('input', function() {
+      const query = this.value.trim().toLowerCase();
+      if (!query) {
+        hideSuggestions();
+        return;
+      }
+      const matches = allNames.filter(n => n.toLowerCase().includes(query));
+      renderSuggestions(matches);
+    });
+
+    input.addEventListener('keydown', function(e) {
+      const items = Array.from(suggestionsBox.children);
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = (activeIndex + 1) % items.length;
+        updateActive(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = (activeIndex - 1 + items.length) % items.length;
+        updateActive(items);
+      } else if (e.key === 'Enter') {
+        if (activeIndex >= 0) {
+          e.preventDefault();
+          selectName(items[activeIndex].textContent);
+        } else if (allNames.includes(this.value)) {
+          hideSuggestions();
+          handleSelection(this.value);
+        }
+      } else if (e.key === 'Escape') {
+        hideSuggestions();
+      }
+    });
+
+    function updateActive(items) {
+      items.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.input-wrapper')) {
+        hideSuggestions();
+      }
+    });
+
+    function handleSelection(name) {
+      if (!allNames.includes(name)) return;
+      const { brygada, czlonkowie } = findPlayer(name);
+      showRealData(name, brygada, czlonkowie);
+    }
+
+    function findPlayer(name) {
+      for (const [brygada, info] of Object.entries(data)) {
+        if (info.czlonkowie.includes(name)) {
+          return {
+            brygada,
+            czlonkowie: info.czlonkowie.filter(n => n !== name)
+          };
+        }
+      }
+      return {};
+    }
+
+    function showRealData(name, brygada, czlonkowie) {
+      let result = `<p>W tym kwartale pracować będziesz w Brygadzie ${brygada}.</p>`;
+      result += `<p>Inni członkowie Twojej Brygady to: ${czlonkowie.join(", ")}.</p>`;
+      resultDiv.innerHTML = result;
+    }
+
+    // ---- Pacman orbit animation ----
+    (function() {
+      const orbit = document.getElementById('titleOrbit');
+      const pacman = document.getElementById('pacman');
+      const DOT_COUNT = 8;
+      const GAP = 34; // odstęp orbity od krawędzi nagłówka
+      const SPEED = 2.1; // rad/s
+      const MOUTH_INTERVAL = 140; // ms
+
+      let dots = [];
+      let theta = 0;
+      let rafId = null;
+      let mouthTimer = null;
+      let stopTimeout = null;
+      let flying = false;
+      let lastTs = null;
+
+      function buildDots() {
+        dots.forEach(d => d.el.remove());
+        dots = [];
+        for (let i = 0; i < DOT_COUNT; i++) {
+          const angle = (i / DOT_COUNT) * Math.PI * 2;
+          const el = document.createElement('div');
+          el.className = 'orbit-dot';
+          el.innerHTML = '<img src="puszka.png" alt="">';
+          orbit.appendChild(el);
+          dots.push({ angle, el, eaten: false });
+        }
+        positionDots();
+      }
+
+      function getRadii() {
+        const rect = orbit.getBoundingClientRect();
+        return {
+          rx: rect.width / 2 + GAP,
+          ry: rect.height / 2 + GAP,
+          cx: rect.width / 2,
+          cy: rect.height / 2
+        };
+      }
+
+      function positionDots() {
+        const { rx, ry, cx, cy } = getRadii();
+        dots.forEach(d => {
+          const x = cx + rx * Math.cos(d.angle);
+          const y = cy + ry * Math.sin(d.angle);
+          d.el.style.transform = `translate(${x - 8}px, ${y - 20}px)`;
+        });
+      }
+
+      function resetDots() {
+        dots.forEach(d => {
+          d.eaten = false;
+          d.el.classList.remove('eaten');
+        });
+      }
+
+      function step(ts) {
+        if (!lastTs) lastTs = ts;
+        const dt = (ts - lastTs) / 1000;
+        lastTs = ts;
+        theta += SPEED * dt;
+
+        const { rx, ry, cx, cy } = getRadii();
+        const x = cx + rx * Math.cos(theta);
+        const y = cy + ry * Math.sin(theta);
+        const vx = -rx * Math.sin(theta);
+        const vy = ry * Math.cos(theta);
+        const angleDeg = Math.atan2(vy, vx) * (180 / Math.PI);
+
+        const pw = pacman.offsetWidth / 2;
+        pacman.style.transform = `translate(${x - pw}px, ${y - pw}px) rotate(${angleDeg}deg)`;
+
+        dots.forEach(d => {
+          if (d.eaten) return;
+          let diff = Math.abs(((theta - d.angle + Math.PI) % (Math.PI * 2)) - Math.PI);
+          if (diff < 0.18) {
+            d.eaten = true;
+            d.el.classList.add('eaten');
+          }
+        });
+
+        if (flying) rafId = requestAnimationFrame(step);
+      }
+
+      function startFlight() {
+        if (!flying) {
+          flying = true;
+          resetDots();
+          positionDots();
+          pacman.classList.add('flying');
+          lastTs = null;
+          rafId = requestAnimationFrame(step);
+          mouthTimer = setInterval(() => {
+            pacman.classList.toggle('mouth-open');
+          }, MOUTH_INTERVAL);
+        }
+        clearTimeout(stopTimeout);
+        stopTimeout = setTimeout(stopFlight, 4000);
+      }
+
+      function stopFlight() {
+        flying = false;
+        pacman.classList.remove('flying', 'mouth-open');
+        if (rafId) cancelAnimationFrame(rafId);
+        if (mouthTimer) clearInterval(mouthTimer);
+      }
+
+      window.addEventListener('resize', positionDots);
+
+      buildDots();
+
+      input.addEventListener('input', startFlight);
+    })();
+  </script>
+</body>
+</html>
