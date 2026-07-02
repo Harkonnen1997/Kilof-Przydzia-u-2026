@@ -41,6 +41,76 @@
       text-shadow: 2px 2px 2px #000;
     }
 
+    .title-orbit {
+      position: relative;
+      display: inline-block;
+    }
+
+    #pacman {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 54px;
+      height: 54px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      will-change: transform;
+      z-index: 10;
+    }
+
+    #pacman.flying {
+      opacity: 1;
+    }
+
+    #pacman img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+      object-fit: cover;
+      border: 2px solid #ffe600;
+      box-shadow: 0 0 8px rgba(0,0,0,0.7);
+    }
+
+    #pacman.mouth-open img {
+      clip-path: polygon(50% 50%, 100% 15%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 85%);
+    }
+
+    .orbit-dot {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 16px;
+      height: 40px;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 9;
+    }
+
+    .orbit-dot img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .orbit-dot.eaten {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+
+    @media (max-width: 600px) {
+      #pacman {
+        width: 40px;
+        height: 40px;
+      }
+
+      .orbit-dot {
+        width: 11px;
+        height: 28px;
+      }
+    }
+
     .selection-container {
       display: flex;
       flex-wrap: wrap;
@@ -129,7 +199,10 @@
   </style>
 </head>
 <body>
-  <h1>Kilof Przydziału</h1>
+  <div class="title-orbit" id="titleOrbit">
+    <h1>Kilof Przydziału</h1>
+    <div id="pacman"><img src="glowa.jpg" alt=""></div>
+  </div>
 
   <div class="selection-container">
     <button onclick="resetSelection()">Wróć</button>
@@ -277,6 +350,121 @@
       result += `<p>Inni członkowie Twojej Brygady to: ${czlonkowie.join(", ")}.</p>`;
       resultDiv.innerHTML = result;
     }
+
+    // ---- Pacman orbit animation ----
+    (function() {
+      const orbit = document.getElementById('titleOrbit');
+      const pacman = document.getElementById('pacman');
+      const DOT_COUNT = 8;
+      const GAP = 34; // odstęp orbity od krawędzi nagłówka
+      const SPEED = 2.1; // rad/s
+      const MOUTH_INTERVAL = 140; // ms
+
+      let dots = [];
+      let theta = 0;
+      let rafId = null;
+      let mouthTimer = null;
+      let stopTimeout = null;
+      let flying = false;
+      let lastTs = null;
+
+      function buildDots() {
+        dots.forEach(d => d.el.remove());
+        dots = [];
+        for (let i = 0; i < DOT_COUNT; i++) {
+          const angle = (i / DOT_COUNT) * Math.PI * 2;
+          const el = document.createElement('div');
+          el.className = 'orbit-dot';
+          el.innerHTML = '<img src="puszka.png" alt="">';
+          orbit.appendChild(el);
+          dots.push({ angle, el, eaten: false });
+        }
+        positionDots();
+      }
+
+      function getRadii() {
+        const rect = orbit.getBoundingClientRect();
+        return {
+          rx: rect.width / 2 + GAP,
+          ry: rect.height / 2 + GAP,
+          cx: rect.width / 2,
+          cy: rect.height / 2
+        };
+      }
+
+      function positionDots() {
+        const { rx, ry, cx, cy } = getRadii();
+        dots.forEach(d => {
+          const x = cx + rx * Math.cos(d.angle);
+          const y = cy + ry * Math.sin(d.angle);
+          d.el.style.transform = `translate(${x - 8}px, ${y - 20}px)`;
+        });
+      }
+
+      function resetDots() {
+        dots.forEach(d => {
+          d.eaten = false;
+          d.el.classList.remove('eaten');
+        });
+      }
+
+      function step(ts) {
+        if (!lastTs) lastTs = ts;
+        const dt = (ts - lastTs) / 1000;
+        lastTs = ts;
+        theta += SPEED * dt;
+
+        const { rx, ry, cx, cy } = getRadii();
+        const x = cx + rx * Math.cos(theta);
+        const y = cy + ry * Math.sin(theta);
+        const vx = -rx * Math.sin(theta);
+        const vy = ry * Math.cos(theta);
+        const angleDeg = Math.atan2(vy, vx) * (180 / Math.PI);
+
+        const pw = pacman.offsetWidth / 2;
+        pacman.style.transform = `translate(${x - pw}px, ${y - pw}px) rotate(${angleDeg}deg)`;
+
+        dots.forEach(d => {
+          if (d.eaten) return;
+          let diff = Math.abs(((theta - d.angle + Math.PI) % (Math.PI * 2)) - Math.PI);
+          if (diff < 0.18) {
+            d.eaten = true;
+            d.el.classList.add('eaten');
+          }
+        });
+
+        if (flying) rafId = requestAnimationFrame(step);
+      }
+
+      function startFlight() {
+        if (!flying) {
+          flying = true;
+          resetDots();
+          positionDots();
+          pacman.classList.add('flying');
+          lastTs = null;
+          rafId = requestAnimationFrame(step);
+          mouthTimer = setInterval(() => {
+            pacman.classList.toggle('mouth-open');
+          }, MOUTH_INTERVAL);
+        }
+        clearTimeout(stopTimeout);
+        stopTimeout = setTimeout(stopFlight, 4000);
+      }
+
+      function stopFlight() {
+        flying = false;
+        pacman.classList.remove('flying', 'mouth-open');
+        if (rafId) cancelAnimationFrame(rafId);
+        if (mouthTimer) clearInterval(mouthTimer);
+      }
+
+      window.addEventListener('resize', positionDots);
+
+      buildDots();
+
+      input.addEventListener('input', startFlight);
+    })();
   </script>
 </body>
 </html>
