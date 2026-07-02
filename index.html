@@ -1,0 +1,547 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kilof Przydziału</title>
+  <style>
+    @font-face {
+      font-family: 'Gothic';
+      src: url('gothic.ttf') format('truetype');
+    }
+
+    @font-face {
+      font-family: 'Minecraft';
+      src: url('minecraft.ttf') format('truetype');
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0 16px;
+      min-height: 100vh;
+      background-image: url('background.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      font-family: 'Gothic', serif;
+      color: #fff;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 4em;
+      margin-top: calc(1em + 11vh);
+      font-family: 'Minecraft', monospace;
+      color: #ffe600;
+      text-shadow: 2px 2px 2px #000;
+    }
+
+    .title-orbit {
+      position: relative;
+      display: inline-block;
+    }
+
+    #pacman {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 135px;
+      height: 135px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      will-change: transform;
+      z-index: 10;
+    }
+
+    #pacman.flying {
+      opacity: 1;
+    }
+
+    #pacman img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+      object-fit: cover;
+      border: 2px solid #ffe600;
+      box-shadow: 0 0 8px rgba(0,0,0,0.7);
+    }
+
+    #pacman.mouth-open img {
+      clip-path: polygon(50% 50%, 100% 15%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 85%);
+    }
+
+    .orbit-dot {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 40px;
+      height: 100px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 9;
+    }
+
+    .orbit-dot img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .orbit-dot.visible {
+      opacity: 1;
+    }
+
+    .orbit-dot.eaten {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+
+    @media (max-width: 600px) {
+      #pacman {
+        width: 100px;
+        height: 100px;
+      }
+
+      .orbit-dot {
+        width: 28px;
+        height: 70px;
+      }
+    }
+
+    .selection-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: calc(1em + 22vh);
+    }
+
+    .input-wrapper {
+      position: relative;
+      width: 260px;
+      max-width: 90vw;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 1.2em;
+      font-family: 'Gothic', serif;
+    }
+
+    #playerInput {
+      width: 100%;
+    }
+
+    #suggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: rgba(20, 20, 20, 0.95);
+      border: 1px solid #ffe600;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 5;
+      text-align: left;
+      display: none;
+    }
+
+    #suggestions div {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    #suggestions div:hover,
+    #suggestions div.active {
+      background: rgba(255, 230, 0, 0.25);
+    }
+
+    #result {
+      margin-top: 2em;
+      font-size: 1.5em;
+      background: rgba(0, 0, 0, 0.6);
+      display: inline-block;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 90vw;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 0 10px;
+      }
+
+      h1 {
+        font-size: 2.2em;
+        margin-top: calc(0.8em + 7vh);
+      }
+
+      .selection-container {
+        flex-direction: column;
+        margin-top: calc(0.8em + 14vh);
+      }
+
+      input, button {
+        font-size: 1em;
+      }
+
+      #result {
+        font-size: 1.1em;
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="title-orbit" id="titleOrbit">
+    <h1>Kilof Przydziału</h1>
+    <div id="pacman"><img src="glowa.jpg" alt=""></div>
+  </div>
+
+  <div class="selection-container">
+    <button onclick="resetSelection()">Wróć</button>
+    <label for="playerInput">Wpisz swoje imię:</label>
+    <div class="input-wrapper">
+      <input type="text" id="playerInput" name="playerInput" placeholder="np. Olga" autocomplete="off">
+      <div id="suggestions"></div>
+    </div>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    const data = {
+      "1": {
+        czlonkowie: ["Chudy", "Erol", "Galm", "Grzebor", "Iskra", "Latro", "Łajza", "Skaza", "Zek"]
+      },
+      "2": {
+        czlonkowie: ["Darnok", "Duży", "Krótki Josif", "Kwasik", "Leonardo", "Maruda", "Melgen", "Merik", "Ravill", "Rosa"]
+      },
+      "3": {
+        czlonkowie: ["Anilis", "Benek", "Cykuta", "Morian", "Pocak", "Rez", "Rudzik", "Sójka"]
+      },
+      "4": {
+        czlonkowie: ["Bercik", "Borek", "Cespenar", "Dodo", "Gierałt", "Jopke", "Kati", "Knaga", "Neralis", "Szczery", "Teodor"]
+      },
+      "6": {
+        czlonkowie: ["Barett", "Genowefa", "Ligon", "Rudy Faja", "Sarniak", "Smalec Faja", "Talla", "Tipp", "Valerian", "Wilgo", "Yarem"]
+      }
+    };
+
+    const input = document.getElementById('playerInput');
+    const resultDiv = document.getElementById('result');
+    const suggestionsBox = document.getElementById('suggestions');
+
+    const allNames = [];
+    Object.values(data).forEach(info => {
+      info.czlonkowie.forEach(name => allNames.push(name));
+    });
+
+    let activeIndex = -1;
+
+    function resetSelection() {
+      input.value = "";
+      resultDiv.innerHTML = "";
+      hideSuggestions();
+    }
+
+    function hideSuggestions() {
+      suggestionsBox.style.display = 'none';
+      suggestionsBox.innerHTML = '';
+      activeIndex = -1;
+    }
+
+    function renderSuggestions(matches) {
+      suggestionsBox.innerHTML = '';
+      if (matches.length === 0) {
+        hideSuggestions();
+        return;
+      }
+      matches.forEach(name => {
+        const div = document.createElement('div');
+        div.textContent = name;
+        div.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectName(name);
+        });
+        suggestionsBox.appendChild(div);
+      });
+      suggestionsBox.style.display = 'block';
+      activeIndex = -1;
+    }
+
+    function selectName(name) {
+      input.value = name;
+      hideSuggestions();
+      handleSelection(name);
+    }
+
+    input.addEventListener('input', function() {
+      const query = this.value.trim().toLowerCase();
+      if (!query) {
+        hideSuggestions();
+        return;
+      }
+      const matches = allNames.filter(n => n.toLowerCase().includes(query));
+      renderSuggestions(matches);
+    });
+
+    input.addEventListener('keydown', function(e) {
+      const items = Array.from(suggestionsBox.children);
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = (activeIndex + 1) % items.length;
+        updateActive(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = (activeIndex - 1 + items.length) % items.length;
+        updateActive(items);
+      } else if (e.key === 'Enter') {
+        if (activeIndex >= 0) {
+          e.preventDefault();
+          selectName(items[activeIndex].textContent);
+        } else if (allNames.includes(this.value)) {
+          hideSuggestions();
+          handleSelection(this.value);
+        }
+      } else if (e.key === 'Escape') {
+        hideSuggestions();
+      }
+    });
+
+    function updateActive(items) {
+      items.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.input-wrapper')) {
+        hideSuggestions();
+      }
+    });
+
+    function handleSelection(name) {
+      if (!allNames.includes(name)) return;
+      const { brygada, czlonkowie } = findPlayer(name);
+      showRealData(name, brygada, czlonkowie);
+    }
+
+    function findPlayer(name) {
+      for (const [brygada, info] of Object.entries(data)) {
+        if (info.czlonkowie.includes(name)) {
+          return {
+            brygada,
+            czlonkowie: info.czlonkowie.filter(n => n !== name)
+          };
+        }
+      }
+      return {};
+    }
+
+    function showRealData(name, brygada, czlonkowie) {
+      let result = `<p>W tym kwartale pracować będziesz w Brygadzie ${brygada}.</p>`;
+      result += `<p>Inni członkowie Twojej Brygady to: ${czlonkowie.join(", ")}.</p>`;
+      resultDiv.innerHTML = result;
+    }
+
+    // ---- Pacman track animation ----
+    (function() {
+      const orbit = document.getElementById('titleOrbit');
+      const pacman = document.getElementById('pacman');
+      const DOT_COUNT = 8;
+      const CLEARANCE_MARGIN = 14; // dodatkowy zapas ponad promień głowy
+      const PATH_SPEED = 250; // px/s
+      const MOUTH_INTERVAL = 140; // ms
+      const RESPAWN_LAG = 4; // po zjedzeniu N-tej puszki odradza się (N-4)-ta
+
+      let dots = [];
+      let eatOrder = [];
+      let s = 0; // pozycja na torze (długość łuku)
+      let rafId = null;
+      let mouthTimer = null;
+      let stopTimeout = null;
+      let flying = false;
+      let lastTs = null;
+
+      // Zwraca geometrię toru (zaokrąglony prostokąt) opartą na aktualnym rozmiarze nagłówka
+      const h1 = orbit.querySelector('h1');
+
+      function getTrack() {
+        const orbitRect = orbit.getBoundingClientRect();
+        const h1Rect = h1.getBoundingClientRect();
+        const hw = h1Rect.width / 2;
+        const hh = h1Rect.height / 2;
+        // środek napisu przeliczony na współrzędne lokalne względem kontenera orbity
+        const centerX = (h1Rect.left - orbitRect.left) + hw;
+        const centerY = (h1Rect.top - orbitRect.top) + hh;
+        const r = (pacman.offsetWidth / 2) + CLEARANCE_MARGIN; // odstęp = promień głowy + zapas
+        const straightX = 2 * hw;   // długość górnej/dolnej krawędzi
+        const straightY = 2 * hh;   // długość lewej/prawej krawędzi
+        const arc = (Math.PI / 2) * r; // długość jednej ćwiartki okręgu w rogu
+        const total = 2 * straightX + 2 * straightY + 4 * arc;
+        return { hw, hh, r, straightX, straightY, arc, total, centerX, centerY };
+      }
+
+      // Punkt na torze dla danej długości łuku t (lokalne współrzędne względem środka nagłówka)
+      function trackPoint(track, t) {
+        const { hw, hh, r, straightX, straightY, arc } = track;
+        let d = t;
+
+        if (d < straightX) {
+          return { x: -hw + d, y: -(hh + r), angle: 0 };
+        }
+        d -= straightX;
+        if (d < arc) {
+          const a = (-90 + (d / arc) * 90) * Math.PI / 180;
+          return { x: hw + r * Math.cos(a), y: -hh + r * Math.sin(a), angle: (a * 180 / Math.PI) + 90 };
+        }
+        d -= arc;
+        if (d < straightY) {
+          return { x: hw + r, y: -hh + d, angle: 90 };
+        }
+        d -= straightY;
+        if (d < arc) {
+          const a = (0 + (d / arc) * 90) * Math.PI / 180;
+          return { x: hw + r * Math.cos(a), y: hh + r * Math.sin(a), angle: (a * 180 / Math.PI) + 90 };
+        }
+        d -= arc;
+        if (d < straightX) {
+          return { x: hw - d, y: hh + r, angle: 180 };
+        }
+        d -= straightX;
+        if (d < arc) {
+          const a = (90 + (d / arc) * 90) * Math.PI / 180;
+          return { x: -hw + r * Math.cos(a), y: hh + r * Math.sin(a), angle: (a * 180 / Math.PI) + 90 };
+        }
+        d -= arc;
+        if (d < straightY) {
+          return { x: -(hw + r), y: hh - d, angle: 270 };
+        }
+        d -= straightY;
+        const a = (180 + (d / arc) * 90) * Math.PI / 180;
+        return { x: -hw + r * Math.cos(a), y: -hh + r * Math.sin(a), angle: (a * 180 / Math.PI) + 90 };
+      }
+
+      function buildDots() {
+        dots.forEach(d => d.el.remove());
+        dots = [];
+        const track = getTrack();
+        const startFrac = track.total > 0 ? (track.straightX / track.total) : 0;
+        for (let i = 0; i < DOT_COUNT; i++) {
+          const el = document.createElement('div');
+          el.className = 'orbit-dot';
+          el.innerHTML = '<img src="puszka.png" alt="">';
+          orbit.appendChild(el);
+          dots.push({ frac: (startFrac + i / DOT_COUNT) % 1, el, eaten: false });
+        }
+        positionDots();
+      }
+
+      function positionDots() {
+        const track = getTrack();
+        const dw = dots[0] ? dots[0].el.offsetWidth / 2 : 20;
+        const dh = dots[0] ? dots[0].el.offsetHeight / 2 : 50;
+        dots.forEach(d => {
+          const p = trackPoint(track, d.frac * track.total);
+          const x = track.centerX + p.x;
+          const y = track.centerY + p.y;
+          d.el.style.transform = `translate(${x - dw}px, ${y - dh}px)`;
+        });
+      }
+
+      function resetDots() {
+        eatOrder = [];
+        dots.forEach(d => {
+          d.eaten = false;
+          d.el.classList.remove('eaten');
+        });
+      }
+
+      function eatDot(d) {
+        d.eaten = true;
+        d.el.classList.add('eaten');
+        eatOrder.push(d);
+        if (eatOrder.length >= RESPAWN_LAG) {
+          const respawn = eatOrder[eatOrder.length - RESPAWN_LAG];
+          respawn.eaten = false;
+          respawn.el.classList.remove('eaten');
+        }
+      }
+
+      function step(ts) {
+        if (!lastTs) lastTs = ts;
+        const dt = (ts - lastTs) / 1000;
+        lastTs = ts;
+
+        const track = getTrack();
+        s = (s + PATH_SPEED * dt) % track.total;
+
+        const p = trackPoint(track, s);
+        const x = track.centerX + p.x;
+        const y = track.centerY + p.y;
+
+        const pw = pacman.offsetWidth / 2;
+        pacman.style.transform = `translate(${x - pw}px, ${y - pw}px) rotate(${p.angle}deg)`;
+
+        dots.forEach(d => {
+          if (d.eaten) return;
+          const dotS = d.frac * track.total;
+          let diff = Math.abs(s - dotS);
+          diff = Math.min(diff, track.total - diff);
+          if (diff < 26) {
+            eatDot(d);
+          }
+        });
+
+        if (flying) rafId = requestAnimationFrame(step);
+      }
+
+      function startFlight() {
+        if (!flying) {
+          flying = true;
+          resetDots();
+          positionDots();
+          const track = getTrack();
+          s = track.straightX; // start w prawym górnym rogu toru
+          pacman.classList.add('flying');
+          dots.forEach(d => d.el.classList.add('visible'));
+          lastTs = null;
+          rafId = requestAnimationFrame(step);
+          mouthTimer = setInterval(() => {
+            pacman.classList.toggle('mouth-open');
+          }, MOUTH_INTERVAL);
+        }
+        clearTimeout(stopTimeout);
+        stopTimeout = setTimeout(stopFlight, 4000);
+      }
+
+      function stopFlight() {
+        flying = false;
+        pacman.classList.remove('flying', 'mouth-open');
+        dots.forEach(d => d.el.classList.remove('visible'));
+        if (rafId) cancelAnimationFrame(rafId);
+        if (mouthTimer) clearInterval(mouthTimer);
+      }
+
+      window.addEventListener('resize', positionDots);
+
+      buildDots();
+
+      input.addEventListener('input', startFlight);
+    })();
+  </script>
+</body>
+</html>
